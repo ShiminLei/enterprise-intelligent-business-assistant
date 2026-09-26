@@ -1,0 +1,83 @@
+spring:
+  application:
+    name: enterprise-intelligent-business-assistant
+
+  # 使用 compose.yaml 启动时，连接信息由 spring-boot-docker-compose 自动提供；以下为直接运行 jar 时的默认值
+  datasource:
+    url: jdbc:postgresql://localhost:5432/assistant
+    username: assistant
+    password: assistant
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+
+  servlet:
+    multipart:
+      max-file-size: 1MB
+      max-request-size: 2MB
+
+  ai:
+    # 模型调用失败时最多重试 1 次，避免超过单次请求 120 秒的时限
+    retry:
+      max-attempts: 2
+      backoff:
+        initial-interval: 1s
+        max-interval: 5s
+    # 只启用对话与向量模型，关闭用不到的 OpenAI 能力
+    model:
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      moderation: none
+    openai:
+      # 阿里云百炼 OpenAI 兼容接口；Spring AI 会自动拼接 /v1/chat/completions 与 /v1/embeddings
+      base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+      # 只通过环境变量注入；占位值保证未配置 Key 时应用仍能启动（宪法 I）
+      api-key: ${DASHSCOPE_API_KEY:not-configured}
+      chat:
+        options:
+          model: ${CHAT_MODEL:qwen-plus}
+          temperature: 0.2
+      embedding:
+        options:
+          model: ${EMBEDDING_MODEL:text-embedding-v4}
+          dimensions: 1024
+          encoding-format: float
+    vectorstore:
+      pgvector:
+        # 表结构由 Flyway 管理（V1__schema.sql）
+        initialize-schema: false
+        dimensions: 1024
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-components: always
+      show-details: never
+
+logging:
+  structured:
+    format:
+      console: ecs
+
+app:
+  time-zone: Asia/Shanghai
+  agent:
+    max-tool-calls: 10
+    timeout: 120s
+    history-size: 20
+  knowledge:
+    top-k: 5
+    similarity-threshold: 0.5

@@ -1,0 +1,16 @@
+spring:
+  docker:
+    compose:
+      enabled: false
+  ai:
+    openai:
+      api-key: test-key
+
+# 测试中日志用纯文本，便于阅读
+logging:
+  structured:
+    format:
+      console: ""
+  level:
+    root: WARN
+    com.enterprise.assistant: INFO

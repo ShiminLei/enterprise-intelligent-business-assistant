@@ -1,0 +1,20 @@
+# 本地演示数据库：PostgreSQL 16 + pgvector。
+# 执行 ./mvnw spring-boot:run 时由 spring-boot-docker-compose 自动启动。
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: assistant
+      POSTGRES_USER: assistant
+      POSTGRES_PASSWORD: assistant
+    ports:
+      # 只写容器端口：宿主机端口随机分配，由 Spring Boot 自动识别，避免与本机已有的 PostgreSQL 冲突
+      - "5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    labels:
+      # 让 Spring Boot 把 pgvector 镜像识别为 PostgreSQL 服务
+      org.springframework.boot.service-connection: postgres
+
+volumes:
+  pgdata:
