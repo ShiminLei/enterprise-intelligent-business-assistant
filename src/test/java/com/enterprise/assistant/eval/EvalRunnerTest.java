@@ -85,10 +85,10 @@ class EvalRunnerTest {
 
     /** 一次判定。 */
     record Check(String caseId, String category, String type, String question, boolean passed, List<String> problems,
-                 long millis) {
+                 long millis, Turn turn) {
         static Check of(String caseId, String category, String type, String question, List<String> problems,
-                        long millis) {
-            return new Check(caseId, category, type, question, problems.isEmpty(), problems, millis);
+                        Turn turn) {
+            return new Check(caseId, category, type, question, problems.isEmpty(), problems, turn.millis(), turn);
         }
     }
 
@@ -114,7 +114,7 @@ class EvalRunnerTest {
                     turnNo++;
                     String question = (String) t.get("question");
                     Turn turn = ask(member, conversationId, question);
-                    checks.add(Check.of(id + "#" + turnNo, category, type, question, problems(t, turn), turn.millis()));
+                    checks.add(Check.of(id + "#" + turnNo, category, type, question, problems(t, turn), turn));
                 }
                 continue;
             }
@@ -124,7 +124,7 @@ class EvalRunnerTest {
                 String question = (String) c.get("question");
                 Turn turn = ask(member, conversations.create(member).getId(), question);
                 String caseId = repeat > 1 ? id + "#" + i : id;
-                checks.add(Check.of(caseId, category, type, question, problems(c, turn), turn.millis()));
+                checks.add(Check.of(caseId, category, type, question, problems(c, turn), turn));
             }
         }
 
@@ -231,6 +231,20 @@ class EvalRunnerTest {
                         .append(String.format("%.1f 秒", c.millis() / 1000.0)).append(" | ")
                         .append(c.question().replace("|", "\\|")).append(" | ")
                         .append(String.join("；", c.problems()).replace("|", "\\|")).append(" |\n");
+            }
+            List<Check> failed = checks.stream().filter(c -> !c.passed()).toList();
+            if (!failed.isEmpty()) {
+                md.append("\n## 未通过题目的回答\n");
+                for (Check c : failed) {
+                    md.append("\n### ").append(c.caseId()).append("：").append(c.question()).append("\n\n")
+                            .append("- 工具调用：").append(c.turn().tools().isEmpty() ? "无" : String.join(" → ", c.turn().tools()))
+                            .append("\n- 引用来源：").append(c.turn().citations().stream()
+                                    .map(x -> "[" + x.index() + "]《" + x.documentName() + "》" + x.section())
+                                    .reduce((a, b) -> a + "、" + b).orElse("无"))
+                            .append("\n- 回答：\n\n").append(c.turn().answer().lines().map(l -> "  > " + l)
+                                    .reduce((a, b) -> a + "\n" + b).orElse("  > （空）"))
+                            .append("\n");
+                }
             }
             return md.toString();
         }
