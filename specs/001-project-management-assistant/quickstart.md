@@ -21,7 +21,7 @@ export DASHSCOPE_API_KEY=sk-xxxx      # 只通过环境变量注入，不要写�
 
 **预期结果**：
 
-- 日志中出现「知识库导入完成：项目风险管理规定、项目管理制度」。
+- 日志中出现「知识库导入完成，共 2 份内置文档」。
 - `curl localhost:8080/actuator/health` 返回 `UP`，其中 `db` 与 `knowledgeBase` 均为 `UP`。
 - 再次重启应用，日志显示「知识库内容未变化，跳过导入」（FR-006：不重复导入）。
 

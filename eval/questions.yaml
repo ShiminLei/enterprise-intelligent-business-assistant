@@ -1,0 +1,139 @@
+# 评估问题集（宪法原则 II）：交付或演示前运行 `./mvnw verify -Peval`，报告写入 target/eval-report.md。
+#
+# 字段说明：
+#   type            query（单项查询，期望 ≤ 10 秒）/ analysis（多步骤分析，期望 ≤ 60 秒）（SC-003）
+#   category        policy 制度问答 / not_found 知识库外问题 / core 核心演示用例 / followup 指代追问 /
+#                   ask_missing 缺少信息的写操作 / out_of_scope 超出服务范围
+#   expectKeywords  回答必须全部包含；用 | 分隔的写法表示「任选其一」
+#   expectDocument  引用来源中必须出现的文档名
+#   expectTools     必须按顺序出现的工具调用（允许中间穿插其他调用）
+#   expectNoPendingAction  不得生成待确认操作
+#   expectNoTools   不得调用任何工具
+#   repeat          重复运行次数（核心演示用例 5 次，SC-001）
+#   user            以哪个演示账号提问，默认 wangjl
+
+cases:
+  # ---------- 制度问答（SC-002：≥ 9/10 与原文一致并附出处） ----------
+  - id: policy-01
+    category: policy
+    type: query
+    question: 任务延期超过几天算高风险？
+    expectKeywords: ["7"]
+    expectDocument: 项目风险管理规定
+  - id: policy-02
+    category: policy
+    type: query
+    question: 任务延期 4 到 7 天属于什么风险等级？
+    expectKeywords: ["中风险"]
+    expectDocument: 项目风险管理规定
+  - id: policy-03
+    category: policy
+    type: query
+    question: 高优先级的任务延期多少天就算高风险？
+    expectKeywords: ["3"]
+    expectDocument: 项目风险管理规定
+  - id: policy-04
+    category: policy
+    type: query
+    question: 高风险需要向谁上报？时限是多久？
+    expectKeywords: ["PMO|项目管理办公室", "1 个工作日|一个工作日|1个工作日"]
+    expectDocument: 项目风险管理规定
+  - id: policy-05
+    category: policy
+    type: query
+    question: 出现中风险的延期任务，项目经理应该怎么处理？
+    expectKeywords: ["追赶计划"]
+    expectDocument: 项目风险管理规定
+  - id: policy-06
+    category: policy
+    type: query
+    question: 任务可以从待开始直接变成已完成吗？
+    expectKeywords: ["进行中"]
+    expectDocument: 项目管理制度
+  - id: policy-07
+    category: policy
+    type: query
+    question: 已取消的任务还能重新开始吗？
+    expectKeywords: ["终态|不能"]
+    expectDocument: 项目管理制度
+  - id: policy-08
+    category: policy
+    type: query
+    question: 团队成员可以自己创建任务吗？
+    expectKeywords: ["项目经理|项目负责人"]
+    expectDocument: 项目管理制度
+  - id: policy-09
+    category: policy
+    type: query
+    question: 项目风险分析报告必须包含哪些内容？
+    expectKeywords: ["延期任务清单", "应对措施"]
+    expectDocument: 项目风险管理规定
+  - id: policy-10
+    category: policy
+    type: query
+    question: 项目周报什么时候提交？
+    expectKeywords: ["周五"]
+    expectDocument: 项目管理制度
+
+  # ---------- 知识库外问题（SC-002：3/3 明确告知未找到） ----------
+  - id: not-found-01
+    category: not_found
+    type: query
+    question: 公司的差旅报销标准是多少？
+    expectKeywords: ["未找到|没有找到|没有相关"]
+  - id: not-found-02
+    category: not_found
+    type: query
+    question: 员工每年有几天年假？
+    expectKeywords: ["未找到|没有找到|没有相关"]
+  - id: not-found-03
+    category: not_found
+    type: query
+    question: 办公电脑怎么申领？
+    expectKeywords: ["未找到|没有找到|没有相关"]
+
+  # ---------- 核心演示用例（SC-001：5 次中至少 4 次输出完整报告） ----------
+  - id: core-risk-analysis
+    category: core
+    type: analysis
+    repeat: 5
+    question: 查询项目A目前有哪些延期任务，并结合公司的风险管理规定生成一份风险分析。
+    expectTools: [findProjects, queryTasks, searchKnowledge]
+    expectKeywords: ["T-103", "T-104", "T-105", "高风险", "中风险", "低风险", "措施|建议"]
+    expectDocument: 项目风险管理规定
+
+  # ---------- 指代追问（SC-005：正确率 ≥ 90%） ----------
+  - id: followup-01
+    category: followup
+    type: query
+    turns:
+      - question: 项目A有哪些延期任务？
+        expectKeywords: ["T-103", "T-104", "T-105"]
+      - question: 其中优先级最高的是哪个？
+        expectKeywords: ["T-103|支付接口联调"]
+      - question: 它的负责人是谁？
+        expectKeywords: ["张三"]
+      - question: 这个人手上还有哪些没完成的任务？
+        expectKeywords: ["T-108|安全渗透测试"]
+
+  # ---------- 缺少信息的写操作（FR-022：先追问，不生成待确认操作） ----------
+  - id: ask-missing-01
+    category: ask_missing
+    type: query
+    question: 帮我给项目A创建一个任务
+    expectKeywords: ["标题|负责人|截止"]
+    expectNoPendingAction: true
+  - id: ask-missing-02
+    category: ask_missing
+    type: query
+    question: 把任务 T-102 改一下
+    expectKeywords: ["状态"]
+    expectNoPendingAction: true
+
+  # ---------- 超出服务范围（spec 边界情况） ----------
+  - id: out-of-scope-01
+    category: out_of_scope
+    type: query
+    question: 帮我写一首关于秋天的诗
+    expectKeywords: ["项目"]
+    expectNoTools: true

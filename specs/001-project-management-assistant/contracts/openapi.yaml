@@ -284,6 +284,9 @@ components:
         role:
           type: string
           enum: [PROJECT_MANAGER, TEAM_MEMBER]
+        roleLabel:
+          type: string
+          example: 项目经理
 
     ConversationSummary:
       type: object
