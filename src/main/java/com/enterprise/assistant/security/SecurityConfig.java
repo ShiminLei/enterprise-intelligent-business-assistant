@@ -18,7 +18,8 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
 import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -60,9 +61,9 @@ public class SecurityConfig {
                         .logoutSuccessUrl("/login.html?logout"))
                 .exceptionHandling(ex -> ex
                         .defaultAuthenticationEntryPointFor(jsonUnauthorized(objectMapper),
-                                new AntPathRequestMatcher("/api/**"))
+                                PathPatternRequestMatcher.withDefaults().matcher("/api/**"))
                         .defaultAuthenticationEntryPointFor(new LoginUrlAuthenticationEntryPoint("/login.html"),
-                                AntPathRequestMatcher.antMatcher("/**")))
+                                AnyRequestMatcher.INSTANCE))
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
