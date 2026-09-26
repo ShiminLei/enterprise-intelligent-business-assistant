@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>登录 · 项目管理智能助手</title>
+    <link rel="stylesheet" href="/app.css">
+</head>
+<body class="login-page">
+<main class="login-card">
+    <h1>项目管理智能助手</h1>
+    <p class="muted">查询项目与任务、了解公司制度、分析项目风险</p>
+
+    <form id="login-form" autocomplete="on">
+        <label>账号
+            <input name="username" autocomplete="username" required autofocus>
+        </label>
+        <label>密码
+            <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <p id="login-error" class="form-error" hidden>账号或密码错误</p>
+        <button type="submit" class="primary">登录</button>
+    </form>
+
+    <details class="demo-accounts" open>
+        <summary>演示账号（初始密码 <code>demo123</code>）</summary>
+        <table>
+            <thead><tr><th>账号</th><th>姓名</th><th>角色</th></tr></thead>
+            <tbody>
+            <tr><td><code>wangjl</code></td><td>王经理</td><td>项目经理（项目A）</td></tr>
+            <tr><td><code>lijl</code></td><td>李经理</td><td>项目经理（项目B、C）</td></tr>
+            <tr><td><code>zhangsan</code></td><td>张三</td><td>团队成员</td></tr>
+            <tr><td><code>lisi</code></td><td>李四</td><td>团队成员</td></tr>
+            <tr><td><code>zhaoliu</code></td><td>赵六</td><td>团队成员</td></tr>
+            </tbody>
+        </table>
+    </details>
+</main>
+
+<script>
+    (function () {
+        const form = document.getElementById('login-form');
+        const error = document.getElementById('login-error');
+        if (new URLSearchParams(location.search).has('error')) {
+            error.hidden = false;
+        }
+
+        function csrfToken() {
+            const m = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/);
+            return m ? decodeURIComponent(m[1]) : '';
+        }
+
+        // 如果还没有 CSRF Cookie（例如直接打开页面），先请求一次本页以获取
+        async function ensureCsrf() {
+            if (!csrfToken()) {
+                await fetch('/login.html', {credentials: 'same-origin'});
+            }
+            return csrfToken();
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            error.hidden = true;
+            const token = await ensureCsrf();
+            const res = await fetch('/login', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-XSRF-TOKEN': token},
+                body: new URLSearchParams(new FormData(form))
+            });
+            if (res.url.includes('error') || !res.ok) {
+                error.hidden = false;
+                return;
+            }
+            const returnTo = sessionStorage.getItem('returnTo') || '';
+            sessionStorage.removeItem('returnTo');
+            location.href = '/' + returnTo;
+        });
+    })();
+</script>
+</body>
+</html>

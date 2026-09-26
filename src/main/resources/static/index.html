@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>项目管理智能助手</title>
+    <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="app">
+    <header class="topbar">
+        <div class="brand">项目管理智能助手</div>
+        <div class="user">
+            <span id="me"></span>
+            <button id="logout" class="ghost">退出登录</button>
+        </div>
+    </header>
+
+    <div class="main">
+        <aside class="sidebar">
+            <div class="actions">
+                <button id="new-conversation" class="primary">＋ 新建会话</button>
+                <button id="open-knowledge" class="ghost">知识库</button>
+            </div>
+            <nav>
+                <div class="section-title">我的会话</div>
+                <div id="conversation-list"></div>
+            </nav>
+        </aside>
+
+        <section id="chat-view" class="view">
+            <div id="messages" class="messages"></div>
+            <form id="composer" class="composer">
+                <textarea id="input" rows="1" maxlength="2000"
+                          placeholder="输入业务需求，例如：项目A有哪些延期任务？（Enter 发送，Shift+Enter 换行）"></textarea>
+                <button id="send" type="submit" class="primary">发送</button>
+            </form>
+        </section>
+
+        <section id="knowledge-view" class="view" hidden></section>
+    </div>
+</div>
+
+<template id="empty-hint">
+    <div class="empty-hint">
+        <h2>你好，有什么可以帮你？</h2>
+        <p>我可以查询项目与任务、解答公司制度问题、生成风险分析，并协助创建任务和更新任务状态。</p>
+        <div class="examples">
+            <button type="button">项目A有哪些延期任务？</button>
+            <button type="button">任务延期超过几天算高风险？</button>
+            <button type="button">查询项目A目前有哪些延期任务，并结合公司的风险管理规定生成一份风险分析。</button>
+        </div>
+    </div>
+</template>
+
+<script src="/vendor/marked.min.js"></script>
+<script src="/vendor/purify.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
