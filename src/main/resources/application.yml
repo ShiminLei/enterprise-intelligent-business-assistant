@@ -19,6 +19,13 @@ spring:
   flyway:
     enabled: true
 
+  # 所有 HTTP 客户端（含 Spring AI 调用百炼）的超时：避免模型接口不响应时线程无限期挂起。
+  # 评估中观察到单次模型调用最长约 18 秒，60 秒留有余量。
+  http:
+    client:
+      connect-timeout: 10s
+      read-timeout: 60s
+
   servlet:
     multipart:
       max-file-size: 1MB
