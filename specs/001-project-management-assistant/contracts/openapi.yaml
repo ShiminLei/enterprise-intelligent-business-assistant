@@ -1,0 +1,371 @@
+openapi: 3.0.3
+info:
+  title: 项目管理智能助手 API
+  version: 0.1.0
+  description: |
+    Web 页面与后端之间的 REST 接口。除 /login 与 /actuator/health 外，所有接口都需要登录（基于 Session）。
+    未登录访问 /api/** 返回 401；权限不足返回 403。
+    所有非 GET 请求需要携带 X-XSRF-TOKEN 请求头（值取自 XSRF-TOKEN Cookie）。
+servers:
+  - url: http://localhost:8080
+
+tags:
+  - name: auth
+    description: 登录与当前用户
+  - name: conversation
+    description: 会话与对话
+  - name: pending-action
+    description: 待确认的写操作
+  - name: knowledge
+    description: 知识库文档
+
+paths:
+  /login:
+    post:
+      tags: [auth]
+      summary: 表单登录（Spring Security）
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '302':
+          description: 成功重定向到 /；失败重定向到 /login.html?error（统一提示「账号或密码错误」，FR-004b）
+
+  /logout:
+    post:
+      tags: [auth]
+      summary: 退出登录
+      responses:
+        '302':
+          description: 重定向到 /login.html
+
+  /api/me:
+    get:
+      tags: [auth]
+      summary: 当前登录用户
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/conversations:
+    get:
+      tags: [conversation]
+      summary: 当前用户的会话列表（按更新时间倒序）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ConversationSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [conversation]
+      summary: 新建会话（FR-003）
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConversationSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/conversations/{conversationId}/messages:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [conversation]
+      summary: 会话中的历史消息（含步骤、引用和相关的待确认操作）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [conversation]
+      summary: 发送消息，并以 SSE 流式返回处理进度和最终回答
+      description: |
+        事件格式见 contracts/chat-stream-events.md。
+        发送新消息时，该会话中所有 PENDING 的待确认操作变为 EXPIRED。
+        同一会话同一时间只允许一个处理中的请求，否则返回 409。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        '200':
+          description: SSE 事件流
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/pending-actions/{actionId}/confirm:
+    parameters:
+      - $ref: '#/components/parameters/ActionId'
+    post:
+      tags: [pending-action]
+      summary: 确认并执行待确认操作（不经过大模型，FR-021）
+      description: 执行前重新校验权限和任务状态流转。只有发起人本人可以确认。
+      responses:
+        '200':
+          description: 已处理；status 为 EXECUTED 或 FAILED（附原因）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PendingAction' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: 操作已不是 PENDING（已执行、已取消或已作废），不会重复执行
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/pending-actions/{actionId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ActionId'
+    post:
+      tags: [pending-action]
+      summary: 取消待确认操作
+      responses:
+        '200':
+          description: 已取消
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PendingAction' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: 操作已不是 PENDING
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/knowledge/documents:
+    get:
+      tags: [knowledge]
+      summary: 知识库文档列表
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/KnowledgeDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [knowledge]
+      summary: 上传 Markdown 文档（仅项目经理，FR-006a）；同名文档替换旧内容
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: .md 文件，UTF-8，非空，≤ 1 MB
+      responses:
+        '201':
+          description: 导入完成，可立即检索
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KnowledgeDocument' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503':
+          description: 向量化服务不可用，已有知识库不受影响
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /actuator/health:
+    get:
+      summary: 健康检查（无需登录）
+      responses:
+        '200':
+          description: 包含 db 与 knowledgeBase 组件状态
+
+components:
+  parameters:
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    ActionId:
+      name: actionId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+
+  responses:
+    BadRequest:
+      description: 参数不合法
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: 未登录或登录已失效
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: 无权限
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: 资源不存在或不属于当前用户
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: 状态冲突
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: FORBIDDEN
+        message:
+          type: string
+          description: 面向用户的中文说明
+          example: 只有项目经理可以上传知识库文档
+
+    CurrentUser:
+      type: object
+      required: [id, username, name, role]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        name: { type: string }
+        role:
+          type: string
+          enum: [PROJECT_MANAGER, TEAM_MEMBER]
+
+    ConversationSummary:
+      type: object
+      required: [id, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Message:
+      type: object
+      required: [id, role, content, status, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        role:
+          type: string
+          enum: [USER, ASSISTANT]
+        content:
+          type: string
+          description: 助手消息为 Markdown，正文中以 [1]、[2] 引用 citations
+        status:
+          type: string
+          enum: [COMPLETED, FAILED, STEP_LIMIT_REACHED]
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/Step' }
+        citations:
+          type: array
+          items: { $ref: '#/components/schemas/Citation' }
+        pendingActions:
+          type: array
+          items: { $ref: '#/components/schemas/PendingAction' }
+        createdAt: { type: string, format: date-time }
+
+    Step:
+      type: object
+      required: [seq, tool, label, success]
+      properties:
+        seq: { type: integer }
+        tool: { type: string, example: queryTasks }
+        label: { type: string, example: 查询任务 }
+        resultSummary: { type: string, example: 找到 3 个延期任务 }
+        success: { type: boolean }
+        durationMs: { type: integer }
+
+    Citation:
+      type: object
+      required: [index, documentName, excerpt]
+      properties:
+        index: { type: integer, example: 1 }
+        documentName: { type: string, example: 项目风险管理规定 }
+        section: { type: string, example: 二、延期风险等级 }
+        excerpt: { type: string }
+
+    PendingAction:
+      type: object
+      required: [id, type, summary, status]
+      properties:
+        id: { type: integer, format: int64 }
+        type:
+          type: string
+          enum: [CREATE_TASK, UPDATE_TASK_STATUS]
+        summary:
+          type: string
+          example: 在「项目A（客户门户升级）」中创建任务「跟进支付接口联调」，负责人张三，截止 2026-10-02，优先级高
+        status:
+          type: string
+          enum: [PENDING, EXECUTED, FAILED, CANCELLED, EXPIRED]
+        result:
+          type: string
+          nullable: true
+          example: 已创建任务 T-131
+
+    KnowledgeDocument:
+      type: object
+      required: [id, name, source, chunkCount, importedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string, example: 项目风险管理规定 }
+        source:
+          type: string
+          enum: [BUILT_IN, UPLOADED]
+        chunkCount: { type: integer }
+        importedAt: { type: string, format: date-time }

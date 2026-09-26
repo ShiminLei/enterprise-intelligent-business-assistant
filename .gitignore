@@ -1,0 +1,27 @@
+# Build output
+target/
+build/
+out/
+.gradle/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Local secrets and environment (API Key 只通过环境变量注入，不进仓库)
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.properties
+
+# Claude Code local settings
+.claude/settings.local.json
+
+/tmp
