@@ -1,6 +1,9 @@
 spring:
   application:
     name: enterprise-intelligent-business-assistant
+  # 读取项目根目录下的 .env（不提交 Git），用于本地填写 DASHSCOPE_API_KEY；文件不存在时忽略
+  config:
+    import: optional:file:.env[.properties]
 
   # 使用 compose.yaml 启动时，连接信息由 spring-boot-docker-compose 自动提供；以下为直接运行 jar 时的默认值
   datasource:

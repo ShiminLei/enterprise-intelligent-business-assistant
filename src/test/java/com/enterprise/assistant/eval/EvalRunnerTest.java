@@ -15,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -35,10 +35,10 @@ import com.enterprise.assistant.security.MemberUserDetailsService;
 
 /**
  * 评估问题集运行器（宪法原则 II、research R12）：调用真实的百炼模型，逐题判定并写出 target/eval-report.md。
- * 只在 {@code ./mvnw verify -Peval} 且设置了 DASHSCOPE_API_KEY 时运行。
+ * 只在 {@code ./mvnw verify -Peval} 且（环境变量或 .env 中）配置了 DASHSCOPE_API_KEY 时运行。
  */
 @Tag("eval")
-@EnabledIfEnvironmentVariable(named = "DASHSCOPE_API_KEY", matches = ".+")
+@EnabledIf("apiKeyConfigured")
 @SpringBootTest
 @ActiveProfiles("test")
 @TestPropertySource(properties = "spring.ai.openai.api-key=${DASHSCOPE_API_KEY}")
@@ -53,6 +53,18 @@ class EvalRunnerTest {
 
     static {
         POSTGRES.start();
+    }
+
+    /** 环境变量或项目根目录的 .env 中配置了 DASHSCOPE_API_KEY 时才运行。 */
+    static boolean apiKeyConfigured() throws java.io.IOException {
+        String fromEnv = System.getenv("DASHSCOPE_API_KEY");
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            return true;
+        }
+        Path dotEnv = Path.of(".env");
+        return Files.exists(dotEnv) && Files.readAllLines(dotEnv).stream()
+                .map(String::strip)
+                .anyMatch(line -> line.startsWith("DASHSCOPE_API_KEY=") && line.length() > "DASHSCOPE_API_KEY=".length());
     }
 
     @Autowired
